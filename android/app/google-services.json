@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "5358239739",
+    "project_id": "cycle-farms",
+    "storage_bucket": "cycle-farms.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:5358239739:android:7fd6ef9ecad0b712bad55e",
+        "android_client_info": {
+          "package_name": "com.feedapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAe4zLbVm-EWEjYx99maZetXMFmezYouZA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
