@@ -1,0 +1,1 @@
+ C:\\Users\\Boaz\ Sottie\\Desktop\\projects\\Cycle-Farms-Flutter-Mobile-APP-main\\cycle_farms\\.dart_tool\\flutter_build\\446cb49b9dd106860c7d32f108998826\\native_assets.yaml: 
