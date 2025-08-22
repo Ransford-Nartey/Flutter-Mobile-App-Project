@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/models/user_model.dart';
-import '../../auth/providers/auth_provider.dart';
 import '../../auth/services/auth_service.dart';
 
 class AdminCreationScreen extends StatefulWidget {
@@ -19,10 +17,13 @@ class _AdminCreationScreenState extends State<AdminCreationScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _farmLocationController = TextEditingController();
-  final _farmSizeController = TextEditingController();
-  final _cropTypeController = TextEditingController();
-  
+  final _companyController = TextEditingController();
+  final _departmentController = TextEditingController();
+  final _roleController = TextEditingController();
+  final _bioController = TextEditingController();
+  final _websiteController = TextEditingController();
+  final _socialMediaController = TextEditingController();
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
@@ -34,9 +35,12 @@ class _AdminCreationScreenState extends State<AdminCreationScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _farmLocationController.dispose();
-    _farmSizeController.dispose();
-    _cropTypeController.dispose();
+    _companyController.dispose();
+    _departmentController.dispose();
+    _roleController.dispose();
+    _bioController.dispose();
+    _websiteController.dispose();
+    _socialMediaController.dispose();
     super.dispose();
   }
 
@@ -61,18 +65,21 @@ class _AdminCreationScreenState extends State<AdminCreationScreen> {
           email: _emailController.text.trim(),
           name: _nameController.text.trim(),
           phone: _phoneController.text.trim(),
-          farmLocation: _farmLocationController.text.trim(),
-          farmSize: _farmSizeController.text.trim(),
-          farmTypes: _cropTypeController.text.trim().isNotEmpty 
-              ? [_cropTypeController.text.trim()] 
-              : [],
+          companyName: _companyController.text.trim(),
+          department: _departmentController.text.trim(),
+          role: _roleController.text.trim(),
+          bio: _bioController.text.trim(),
+          website: _websiteController.text.trim(),
+          socialMedia: _socialMediaController.text.trim(),
+          farmTypes: [], // Empty for admin accounts
           userType: UserTypes.admin,
           isActive: true,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
 
-        await AuthService.createUserProfile(userCredential.user!.uid, userModel);
+        await AuthService.createUserProfile(
+            userCredential.user!.uid, userModel);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -145,7 +152,7 @@ class _AdminCreationScreenState extends State<AdminCreationScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Create a new administrator account for Cycle Farms',
+                        'Create a new administrator account with professional credentials',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 16,
@@ -191,7 +198,8 @@ class _AdminCreationScreenState extends State<AdminCreationScreen> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                        .hasMatch(value)) {
                       return 'Please enter a valid email';
                     }
                     return null;
@@ -218,46 +226,85 @@ class _AdminCreationScreenState extends State<AdminCreationScreen> {
 
                 const SizedBox(height: 32),
 
-                // Farm Information
-                _buildSectionHeader('Farm Information'),
+                // Professional Information
+                _buildSectionHeader('Professional Information'),
                 const SizedBox(height: 16),
 
-                TextFormField(
-                  controller: _farmLocationController,
-                  decoration: const InputDecoration(
-                    labelText: 'Farm Location *',
-                    prefixIcon: Icon(Icons.location_on),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your farm location';
-                    }
-                    return null;
-                  },
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _companyController,
+                        decoration: const InputDecoration(
+                          labelText: 'Company Name',
+                          prefixIcon: Icon(Icons.business),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _departmentController,
+                        decoration: const InputDecoration(
+                          labelText: 'Department',
+                          prefixIcon: Icon(Icons.work),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
 
                 const SizedBox(height: 16),
 
                 TextFormField(
-                  controller: _farmSizeController,
+                  controller: _roleController,
                   decoration: const InputDecoration(
-                    labelText: 'Farm Size (acres)',
-                    prefixIcon: Icon(Icons.agriculture),
+                    labelText: 'Role/Position',
+                    prefixIcon: Icon(Icons.badge),
                     border: OutlineInputBorder(),
                   ),
-                  keyboardType: TextInputType.number,
                 ),
 
                 const SizedBox(height: 16),
 
                 TextFormField(
-                  controller: _cropTypeController,
+                  controller: _bioController,
                   decoration: const InputDecoration(
-                    labelText: 'Primary Crop Type',
-                    prefixIcon: Icon(Icons.grass),
+                    labelText: 'Bio/Description',
+                    prefixIcon: Icon(Icons.description),
                     border: OutlineInputBorder(),
                   ),
+                  maxLines: 3,
+                ),
+
+                const SizedBox(height: 16),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _websiteController,
+                        decoration: const InputDecoration(
+                          labelText: 'Website',
+                          prefixIcon: Icon(Icons.language),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _socialMediaController,
+                        decoration: const InputDecoration(
+                          labelText: 'Social Media',
+                          prefixIcon: Icon(Icons.share),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
 
                 const SizedBox(height: 32),
@@ -273,7 +320,9 @@ class _AdminCreationScreenState extends State<AdminCreationScreen> {
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                        _obscurePassword
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                       ),
                       onPressed: () {
                         setState(() {
@@ -304,7 +353,9 @@ class _AdminCreationScreenState extends State<AdminCreationScreen> {
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                        _obscureConfirmPassword
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                       ),
                       onPressed: () {
                         setState(() {
@@ -345,7 +396,8 @@ class _AdminCreationScreenState extends State<AdminCreationScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text(

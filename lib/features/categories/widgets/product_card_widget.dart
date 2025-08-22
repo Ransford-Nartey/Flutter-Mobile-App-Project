@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/models/product_model.dart';
+import '../../../core/utils/cart_utils.dart';
+import '../../cart/providers/cart_provider.dart';
 import 'review_summary_widget.dart';
 
 class ProductCardWidget extends StatelessWidget {
@@ -202,16 +205,22 @@ class ProductCardWidget extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: product.inStock ? onAddToCart : null,
-                          icon: const Icon(Icons.shopping_cart, size: 16),
-                          label: const Text('Add to Cart'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            textStyle: const TextStyle(fontSize: 12),
-                          ),
+                        child: Consumer<CartProvider>(
+                          builder: (context, cart, child) {
+                            final buttonState = CartUtils.getAddToCartButtonState(context, product.id);
+                            
+                            return ElevatedButton.icon(
+                              onPressed: product.inStock ? onAddToCart : null,
+                              icon: Icon(buttonState['icon'], size: 16),
+                              label: Text(buttonState['text']),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: buttonState['backgroundColor'],
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                textStyle: const TextStyle(fontSize: 12),
+                              ),
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(width: 8),

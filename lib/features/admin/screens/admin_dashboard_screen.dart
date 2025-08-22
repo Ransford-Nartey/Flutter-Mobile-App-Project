@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../providers/dashboard_provider.dart';
+import '../../../core/providers/notification_provider.dart';
 import '../widgets/recent_orders_widget.dart';
 import '../widgets/recent_products_widget.dart';
 import 'product_management_screen.dart';
 import 'category_management_screen.dart';
 import 'order_management_screen.dart';
 import 'user_management_screen.dart';
+import 'admin_profile_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -109,6 +111,81 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                 ),
               ],
+            ),
+          ),
+          // Notification Icon
+          Consumer<NotificationProvider>(
+            builder: (context, notificationProvider, child) {
+              return Stack(
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/notifications');
+                    },
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.notifications,
+                        color: Colors.grey[700],
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  if (notificationProvider.unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '${notificationProvider.unreadCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          // Profile Button
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AdminProfileScreen(),
+                ),
+              );
+            },
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.person,
+                color: Colors.grey[700],
+                size: 20,
+              ),
             ),
           ),
         ],
@@ -349,7 +426,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '${product['sales'] ?? 0} sold',
+                          '${product['salesCount'] ?? 0} sold',
                           style: TextStyle(
                             color: Colors.green[700],
                             fontWeight: FontWeight.w600,
@@ -385,13 +462,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           mainAxisSpacing: 16,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 3.5,
+          childAspectRatio: 2.2,
           children: [
             _buildQuickActionCard(
               'Add Product',
               Icons.add_box_rounded,
               Colors.green[600]!,
-              () => Navigator.pushReplacement(
+              () => Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const ProductManagementScreen(),
@@ -402,7 +479,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               'Manage Categories',
               Icons.category_rounded,
               Colors.blue[600]!,
-              () => Navigator.pushReplacement(
+              () => Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const CategoryManagementScreen(),
@@ -413,7 +490,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               'View Orders',
               Icons.shopping_cart_rounded,
               Colors.orange[600]!,
-              () => Navigator.pushReplacement(
+              () => Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const OrderManagementScreen(),
@@ -424,7 +501,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               'User Management',
               Icons.people_rounded,
               Colors.purple[600]!,
-              () => Navigator.pushReplacement(
+              () => Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const UserManagementScreen(),
@@ -462,11 +539,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -474,17 +551,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   child: Icon(
                     icon,
                     color: color,
-                    size: 20,
+                    size: 22,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: Colors.grey[800],
-                      fontSize: 14,
+                      fontSize: 16,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -493,7 +570,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 Icon(
                   Icons.arrow_forward_ios,
                   color: color,
-                  size: 16,
+                  size: 18,
                 ),
               ],
             ),
@@ -603,6 +680,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
               );
               break;
+            case 5: // Profile
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AdminProfileScreen(),
+                ),
+              );
+              break;
           }
         },
         items: const [
@@ -625,6 +710,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.people),
             label: 'Users',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
           ),
         ],
       ),

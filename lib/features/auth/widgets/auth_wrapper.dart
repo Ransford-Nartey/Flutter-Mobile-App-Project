@@ -46,6 +46,29 @@ class AuthWrapper extends StatelessWidget {
               // User is authenticated, check if admin
               return Consumer<AdminProvider>(
                 builder: (context, adminProvider, child) {
+                  // Show loading while provider is initializing
+                  if (!adminProvider.isInitialized) {
+                    return const Scaffold(
+                      body: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 16),
+                            Text(
+                              'Initializing...',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Show loading while checking admin status
                   if (adminProvider.isLoading) {
                     return const Scaffold(
                       body: Center(
@@ -54,6 +77,7 @@ class AuthWrapper extends StatelessWidget {
                     );
                   }
 
+                  // Check if user is admin
                   if (adminProvider.isAdmin) {
                     return const AdminDashboardScreen();
                   }
@@ -64,7 +88,7 @@ class AuthWrapper extends StatelessWidget {
               );
             }
 
-            // User is not authenticated, show auth screen directly
+            // User is not authenticated, show auth screen
             return const AuthScreen();
           },
         );

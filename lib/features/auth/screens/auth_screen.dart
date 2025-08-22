@@ -174,7 +174,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget _buildHeader() {
     return Column(
       children: [
-        // Logo placeholder with long press to open admin creation
+        // Logo with long press to open admin creation
         GestureDetector(
           onLongPress: () {
             HapticFeedback.heavyImpact();
@@ -185,7 +185,6 @@ class _AuthScreenState extends State<AuthScreen> {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor,
               borderRadius: BorderRadius.circular(60),
               boxShadow: [
                 BoxShadow(
@@ -195,10 +194,14 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.water,
-              size: 60,
-              color: Colors.white,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(60),
+              child: Image.asset(
+                'assets/images/logo_cyclefarm.jpg',
+                width: 120,
+                height: 120,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
         ),
@@ -216,41 +219,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
         const SizedBox(height: 8),
 
-        // Subtle hint for admin creation
         Text(
-          'Long press logo for admin access',
-          style: TextStyle(
-            fontSize: 12,
-            color: AppTheme.grey.withOpacity(0.6),
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-
-        const SizedBox(height: 8),
-
-        // Debug: Reset onboarding (only for development)
-        if (kDebugMode)
-          TextButton(
-            onPressed: () async {
-              await FirstTimeService.resetToFirstTime();
-              if (mounted) {
-                Navigator.pushReplacementNamed(context, '/onboarding');
-              }
-            },
-            child: Text(
-              'Reset Onboarding (Debug)',
-              style: TextStyle(
-                fontSize: 10,
-                color: AppTheme.grey.withOpacity(0.4),
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-
-        const SizedBox(height: 8),
-
-        Text(
-          _isLogin ? 'Welcome back!' : 'Create your account',
+          _isLogin ? 'Welcome to Cycle Farms' : 'Create your account',
           style: TextStyle(
             fontSize: 18,
             color: AppTheme.grey,

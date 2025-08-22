@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/order_management_provider.dart';
 import '../../../core/models/order_model.dart';
+import '../../../core/providers/notification_provider.dart';
 import 'admin_dashboard_screen.dart';
 import 'product_management_screen.dart';
 import 'category_management_screen.dart';
@@ -18,7 +19,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
   final _searchController = TextEditingController();
   final _deliveryDateController = TextEditingController();
   String _statusFilter = 'All';
-  String _sortBy = 'createdAt';
   final List<String> _statusOptions = [
     'All',
     'Pending',
@@ -27,12 +27,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
     'Shipped',
     'Delivered',
     'Cancelled'
-  ];
-  final List<String> _sortOptions = [
-    'Date Created',
-    'Date Updated',
-    'Total Amount',
-    'Customer Name'
   ];
 
   @override
@@ -54,10 +48,34 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
 
   Future<void> _updateOrderStatus(String orderId, OrderStatus newStatus) async {
     try {
-      await context
-          .read<OrderManagementProvider>()
-          .updateOrderStatus(orderId, newStatus.toString().split('.').last);
+      // Get the current order to get customer info
+      final orderProvider = context.read<OrderManagementProvider>();
+      final currentOrder =
+          orderProvider.orders.firstWhere((o) => o.id == orderId);
+      final previousStatus = currentOrder.statusText;
+
+      // Update the order status
+      await orderProvider.updateOrderStatus(
+          orderId, newStatus.toString().split('.').last);
+
       if (!mounted) return;
+
+      // Send notification to customer about status update
+      try {
+        final notificationProvider = context.read<NotificationProvider>();
+        await notificationProvider.sendOrderStatusUpdateNotification(
+          customerId: currentOrder.userId,
+          orderId: orderId,
+          orderNumber: orderId,
+          newStatus: newStatus.toString().split('.').last,
+          previousStatus: previousStatus,
+        );
+        print(
+            '🔔 OrderManagementScreen: Status update notification sent to customer');
+      } catch (e) {
+        print('⚠️ OrderManagementScreen: Failed to send notification: $e');
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(
@@ -67,24 +85,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error updating order status: ${e.toString()}')),
-      );
-    }
-  }
-
-  Future<void> _updateDeliveryDate(String orderId, DateTime newDate) async {
-    try {
-      await context
-          .read<OrderManagementProvider>()
-          .updateOrderDelivery(orderId, newDate);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Delivery date updated')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Error updating delivery date: ${e.toString()}')),
       );
     }
   }
@@ -165,7 +165,12 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AdminDashboardScreen(),
+              ),
+            ),
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -196,6 +201,58 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
               ],
             ),
           ),
+          // Notification Icon
+          Consumer<NotificationProvider>(
+            builder: (context, notificationProvider, child) {
+              return Stack(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: IconButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/notifications');
+                      },
+                      icon: Icon(
+                        Icons.notifications,
+                        color: Colors.blue[700],
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  if (notificationProvider.unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '${notificationProvider.unreadCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(width: 12),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -245,42 +302,52 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
         orders.where((o) => o.status == OrderStatus.processing).length;
     final totalRevenue = orders.fold(0.0, (sum, order) => sum + order.total);
 
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _buildStatCard(
-            'Total Orders',
-            totalOrders.toString(),
-            Icons.shopping_cart,
-            Colors.blue[600]!,
-          ),
+        // Top row - 2 cards
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                'Total Orders',
+                totalOrders.toString(),
+                Icons.shopping_cart,
+                Colors.blue[600]!,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildStatCard(
+                'Pending',
+                pendingOrders.toString(),
+                Icons.pending,
+                Colors.orange[600]!,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'Pending',
-            pendingOrders.toString(),
-            Icons.pending,
-            Colors.orange[600]!,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'Processing',
-            processingOrders.toString(),
-            Icons.sync,
-            Colors.purple[600]!,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'Revenue',
-            _formatCurrency(totalRevenue),
-            Icons.attach_money,
-            Colors.green[600]!,
-          ),
+        const SizedBox(height: 16),
+        // Bottom row - 2 cards
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                'Processing',
+                processingOrders.toString(),
+                Icons.sync,
+                Colors.purple[600]!,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildStatCard(
+                'Revenue',
+                _formatCurrency(totalRevenue),
+                Icons.attach_money,
+                Colors.green[600]!,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -415,59 +482,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                       });
                     }
                   },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!),
-                  ),
-                  child: DropdownButton<String>(
-                    value: _sortBy,
-                    underline: const SizedBox(),
-                    isExpanded: true,
-                    items: _sortOptions.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final option = entry.value;
-                      String value;
-                      switch (index) {
-                        case 0:
-                          value = 'createdAt';
-                          break;
-                        case 1:
-                          value = 'updatedAt';
-                          break;
-                        case 2:
-                          value = 'total';
-                          break;
-                        case 3:
-                          value = 'customerName';
-                          break;
-                        default:
-                          value = 'createdAt';
-                      }
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(option),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          _sortBy = newValue;
-                        });
-                      }
-                    },
-                  ),
                 ),
               ),
             ],
@@ -656,15 +670,6 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildActionButton(
-                    'Set Delivery',
-                    Icons.calendar_today,
-                    Colors.green,
-                    () => _showDeliveryDateDialog(order),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildActionButton(
                     'View Details',
                     Icons.visibility,
                     Colors.orange,
@@ -834,76 +839,309 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
     );
   }
 
-  void _showDeliveryDateDialog(OrderModel order) {
-    DateTime selectedDate =
-        order.estimatedDelivery ?? DateTime.now().add(const Duration(days: 7));
+  void _showOrderDetails(OrderModel order) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Set Delivery Date'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Current delivery date: ${_formatDate(selectedDate)}'),
-            const SizedBox(height: 16),
-            CalendarDatePicker(
-              initialDate: selectedDate,
-              firstDate: DateTime.now(),
-              lastDate: DateTime.now().add(const Duration(days: 365)),
-              onDateChanged: (DateTime date) {
-                selectedDate = date;
-              },
-            ),
-          ],
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(order.status),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.shopping_bag,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Order #${order.id.substring(0, 8)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            order.status
+                                .toString()
+                                .split('.')
+                                .last
+                                .toUpperCase(),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Customer Info Section
+                      _buildInfoSection(
+                        'Customer Information',
+                        Icons.person,
+                        [
+                          _buildInfoRow('Name', order.customerName),
+                          _buildInfoRow(
+                              'Order Date', _formatDate(order.createdAt)),
+                          if (order.estimatedDelivery != null)
+                            _buildInfoRow('Est. Delivery',
+                                _formatDate(order.estimatedDelivery!)),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Order Summary Section
+                      _buildInfoSection(
+                        'Order Summary',
+                        Icons.receipt_long,
+                        [
+                          _buildInfoRow('Total Items', '${order.items.length}'),
+                          ...order.items.map((item) => _buildInfoRow(
+                              item.productName, 'x${item.quantity}')),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.green[200]!),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.attach_money,
+                                    color: Colors.green[600], size: 20),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Total Amount:',
+                                  style: TextStyle(
+                                    color: Colors.green[700],
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  _formatCurrency(order.total),
+                                  style: TextStyle(
+                                    color: Colors.green[700],
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Footer
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius:
+                      const BorderRadius.vertical(bottom: Radius.circular(20)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: BorderSide(color: Colors.grey[400]!),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Close'),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showStatusUpdateDialog(order);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _getStatusColor(order.status),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Update Status'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              _updateDeliveryDate(order.id, selectedDate);
-              Navigator.pop(context);
-            },
-            child: const Text('Update'),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoSection(String title, IconData icon, List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: Colors.blue[600], size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _showOrderDetails(OrderModel order) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Order #${order.id.substring(0, 8)}'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Customer: ${order.customerName}'),
-              Text('Status: ${order.status.toString().split('.').last}'),
-              Text('Total: ${_formatCurrency(order.total)}'),
-              Text('Created: ${_formatDate(order.createdAt)}'),
-              if (order.estimatedDelivery != null)
-                Text(
-                    'Estimated Delivery: ${_formatDate(order.estimatedDelivery!)}'),
-              const SizedBox(height: 16),
-              const Text('Items:',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              ...order.items.map((item) => Padding(
-                    padding: const EdgeInsets.only(left: 16, top: 4),
-                    child: Text('• ${item.productName} x${item.quantity}'),
-                  )),
-            ],
+  Widget _buildItemRow(dynamic item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.inventory, color: Colors.green[600], size: 16),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.productName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  'Quantity: ${item.quantity}',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -930,21 +1168,8 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> {
       }).toList();
     }
 
-    // Apply sorting
-    filtered.sort((a, b) {
-      switch (_sortBy) {
-        case 'createdAt':
-          return b.createdAt.compareTo(a.createdAt);
-        case 'updatedAt':
-          return b.updatedAt.compareTo(a.updatedAt);
-        case 'total':
-          return b.total.compareTo(a.total);
-        case 'customerName':
-          return a.customerName.compareTo(b.customerName);
-        default:
-          return b.createdAt.compareTo(a.createdAt);
-      }
-    });
+    // Sort by creation date (newest first)
+    filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     return filtered;
   }

@@ -11,6 +11,17 @@ class UserModel {
   final String? farmLocation;
   final String? farmSize;
   final List<String> farmTypes; // ['tilapia', 'catfish', 'hatchery']
+
+  // Admin-specific fields
+  final String? bio;
+  final String? location;
+  final String? companyName;
+  final String? website;
+  final String? socialMedia;
+  final String? department;
+  final String? role;
+  final List<String> permissions;
+
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isActive;
@@ -27,6 +38,14 @@ class UserModel {
     this.farmLocation,
     this.farmSize,
     required this.farmTypes,
+    this.bio,
+    this.location,
+    this.companyName,
+    this.website,
+    this.socialMedia,
+    this.department,
+    this.role,
+    this.permissions = const [],
     required this.createdAt,
     required this.updatedAt,
     this.isActive = true,
@@ -46,6 +65,14 @@ class UserModel {
       farmLocation: data['farmLocation'],
       farmSize: data['farmSize'],
       farmTypes: List<String>.from(data['farmTypes'] ?? []),
+      bio: data['bio'],
+      location: data['location'],
+      companyName: data['companyName'],
+      website: data['website'],
+      socialMedia: data['socialMedia'],
+      department: data['department'],
+      role: data['role'],
+      permissions: List<String>.from(data['permissions'] ?? []),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
       isActive: data['isActive'] ?? true,
@@ -66,6 +93,14 @@ class UserModel {
       farmLocation: data['farmLocation'],
       farmSize: data['farmSize'],
       farmTypes: List<String>.from(data['farmTypes'] ?? []),
+      bio: data['bio'],
+      location: data['location'],
+      companyName: data['companyName'],
+      website: data['website'],
+      socialMedia: data['socialMedia'],
+      department: data['department'],
+      role: data['role'],
+      permissions: List<String>.from(data['permissions'] ?? []),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
       isActive: data['isActive'] ?? true,
@@ -85,6 +120,14 @@ class UserModel {
       'farmLocation': farmLocation,
       'farmSize': farmSize,
       'farmTypes': farmTypes,
+      'bio': bio,
+      'location': location,
+      'companyName': companyName,
+      'website': website,
+      'socialMedia': socialMedia,
+      'department': department,
+      'role': role,
+      'permissions': permissions,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       'isActive': isActive,
@@ -104,6 +147,14 @@ class UserModel {
     String? farmLocation,
     String? farmSize,
     List<String>? farmTypes,
+    String? bio,
+    String? location,
+    String? companyName,
+    String? website,
+    String? socialMedia,
+    String? department,
+    String? role,
+    List<String>? permissions,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isActive,
@@ -120,11 +171,39 @@ class UserModel {
       farmLocation: farmLocation ?? this.farmLocation,
       farmSize: farmSize ?? this.farmSize,
       farmTypes: farmTypes ?? this.farmTypes,
+      bio: bio ?? this.bio,
+      location: location ?? this.location,
+      companyName: companyName ?? this.companyName,
+      website: website ?? this.website,
+      socialMedia: socialMedia ?? this.socialMedia,
+      department: department ?? this.department,
+      role: role ?? this.role,
+      permissions: permissions ?? this.permissions,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
       preferences: preferences ?? this.preferences,
     );
+  }
+
+  // Check if user is admin
+  bool get isAdmin => userType == 'admin';
+
+  // Check if user is customer
+  bool get isCustomer => userType == 'customer';
+
+  // Get display name with role
+  String get displayNameWithRole {
+    if (isAdmin && role != null) {
+      return '$name ($role)';
+    }
+    return name;
+  }
+
+  // Get admin permissions
+  List<String> get adminPermissions {
+    if (!isAdmin) return [];
+    return permissions;
   }
 
   @override

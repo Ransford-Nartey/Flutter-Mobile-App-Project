@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../screens/order_management_screen.dart';
 
 class RecentOrdersWidget extends StatelessWidget {
   final List<Map<String, dynamic>> orders;
@@ -45,7 +46,12 @@ class RecentOrdersWidget extends StatelessWidget {
               ),
               TextButton(
                 onPressed: () {
-                  // TODO: Navigate to all orders
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const OrderManagementScreen(),
+                    ),
+                  );
                 },
                 style: TextButton.styleFrom(
                   padding:

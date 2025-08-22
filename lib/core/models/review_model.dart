@@ -37,23 +37,41 @@ class ReviewModel {
 
   // Create from Firestore document
   factory ReviewModel.fromFirestore(Map<String, dynamic> data, String id) {
-    return ReviewModel(
-      id: id,
-      productId: data['productId'] ?? '',
-      userId: data['userId'] ?? '',
-      userName: data['userName'] ?? '',
-      userImage: data['userImage'],
-      rating: (data['rating'] ?? 0.0).toDouble(),
-      title: data['title'] ?? '',
-      comment: data['comment'] ?? '',
-      images: data['images'] != null ? List<String>.from(data['images']) : null,
-      isVerifiedPurchase: data['isVerifiedPurchase'] ?? false,
-      isHelpful: data['isHelpful'] ?? false,
-      helpfulCount: data['helpfulCount'] ?? 0,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp).toDate(),
-      isActive: data['isActive'] ?? true,
-    );
+    try {
+      // Handle timestamp conversion safely
+      DateTime parseTimestamp(dynamic timestamp) {
+        if (timestamp is Timestamp) {
+          return timestamp.toDate();
+        } else if (timestamp is DateTime) {
+          return timestamp;
+        } else {
+          // Fallback to current time if timestamp is invalid
+          return DateTime.now();
+        }
+      }
+
+      return ReviewModel(
+        id: id,
+        productId: data['productId'] ?? '',
+        userId: data['userId'] ?? '',
+        userName: data['userName'] ?? '',
+        userImage: data['userImage'],
+        rating: (data['rating'] ?? 0.0).toDouble(),
+        title: data['title'] ?? '',
+        comment: data['comment'] ?? '',
+        images: data['images'] != null ? List<String>.from(data['images']) : null,
+        isVerifiedPurchase: data['isVerifiedPurchase'] ?? false,
+        isHelpful: data['isHelpful'] ?? false,
+        helpfulCount: data['helpfulCount'] ?? 0,
+        createdAt: parseTimestamp(data['createdAt']),
+        updatedAt: parseTimestamp(data['updatedAt']),
+        isActive: data['isActive'] ?? true,
+      );
+    } catch (e) {
+      print('Error parsing ReviewModel from Firestore: $e');
+      print('Data: $data');
+      rethrow;
+    }
   }
 
   // Convert to Map for Firestore

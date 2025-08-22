@@ -1,6 +1,0 @@
-This is a placeholder file for the assets/images directory.
-Replace this with actual onboarding images:
-- onboarding_1.png (Welcome screen)
-- onboarding_2.png (Products screen)
-- onboarding_3.png (Support screen)
-- onboarding_4.png (Get started screen)

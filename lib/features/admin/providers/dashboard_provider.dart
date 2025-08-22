@@ -145,23 +145,44 @@ class DashboardProvider extends ChangeNotifier {
   // Load top selling products
   Future<void> _loadTopProducts() async {
     try {
-      // This would typically involve aggregating order data
-      // For now, we'll use a simple approach based on product ratings
-      final querySnapshot = await _firestore
+      // Get all products ordered by rating
+      final productsQuery = await _firestore
           .collection('products')
           .orderBy('rating', descending: true)
           .limit(5)
           .get();
 
-      _topProducts = querySnapshot.docs.map((doc) {
+      // Get all completed orders to calculate sales counts
+      final ordersQuery = await _firestore.collection('orders').where('status',
+          whereIn: ['confirmed', 'processing', 'shipped', 'delivered']).get();
+
+      // Calculate sales count for each product
+      final Map<String, int> productSalesCount = {};
+
+      for (final orderDoc in ordersQuery.docs) {
+        final orderData = orderDoc.data();
+        final items = orderData['items'] as List<dynamic>? ?? [];
+
+        for (final item in items) {
+          final productId = item['productId']?.toString() ?? '';
+          if (productId.isNotEmpty) {
+            final quantity = (item['quantity'] ?? 0) as int;
+            productSalesCount[productId] =
+                (productSalesCount[productId] ?? 0) + quantity;
+          }
+        }
+      }
+
+      _topProducts = productsQuery.docs.map((doc) {
         final data = doc.data();
+        final productId = doc.id;
         return {
-          'id': doc.id,
+          'id': productId,
           'name': data['name'] ?? '',
           'price': data['price'] ?? 0.0,
           'rating': data['rating'] ?? 0.0,
           'stockQuantity': data['stockQuantity'] ?? 0,
-          'salesCount': 0, // This would be calculated from orders
+          'salesCount': productSalesCount[productId] ?? 0,
         };
       }).toList();
     } catch (e) {

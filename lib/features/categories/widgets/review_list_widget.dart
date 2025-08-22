@@ -5,18 +5,15 @@ import '../../../core/models/review_model.dart';
 import '../providers/review_provider.dart';
 import '../../auth/services/auth_service.dart';
 import 'review_card_widget.dart';
-import 'review_filter_widget.dart';
 import 'review_dialog.dart';
 
 class ReviewListWidget extends StatefulWidget {
   final String productId;
-  final bool showFilters;
   final bool showCreateButton;
 
   const ReviewListWidget({
     super.key,
     required this.productId,
-    this.showFilters = true,
     this.showCreateButton = true,
   });
 
@@ -40,6 +37,11 @@ class _ReviewListWidgetState extends State<ReviewListWidget> {
   Widget build(BuildContext context) {
     return Consumer<ReviewProvider>(
       builder: (context, reviewProvider, child) {
+        print('ReviewListWidget: Building with ${reviewProvider.reviews.length} reviews');
+        print('ReviewListWidget: Filtered reviews: ${reviewProvider.filteredReviews.length}');
+        print('ReviewListWidget: Loading: ${reviewProvider.isLoading}');
+        print('ReviewListWidget: Error: ${reviewProvider.error}');
+        
         if (reviewProvider.isLoading && reviewProvider.reviews.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -60,20 +62,7 @@ class _ReviewListWidgetState extends State<ReviewListWidget> {
             // Header with stats and filters
             _buildHeader(reviewProvider),
 
-            // Filters
-            if (widget.showFilters) ...[
-              const SizedBox(height: 16),
-              ReviewFilterWidget(
-                onFilterChanged: (filterType, rating) {
-                  reviewProvider.setFilterType(filterType, rating: rating);
-                },
-                onClearFilters: () {
-                  reviewProvider.clearFilters();
-                },
-                currentFilter: reviewProvider.filterType,
-                currentRating: reviewProvider.ratingFilter,
-              ),
-            ],
+
 
             const SizedBox(height: 16),
 
@@ -295,6 +284,52 @@ class _ReviewListWidgetState extends State<ReviewListWidget> {
             'Be the first to review this product!',
             style: TextStyle(fontSize: 14, color: Colors.grey[500]),
             textAlign: TextAlign.center,
+          ),
+          // Debug information
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'Debug Info:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Product ID: ${widget.productId}',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                ),
+                Text(
+                  'Total Reviews: ${reviewProvider.totalReviews}',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                ),
+                Text(
+                  'Loading: ${reviewProvider.isLoading}',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                ),
+                if (reviewProvider.error != null)
+                  Text(
+                    'Error: ${reviewProvider.error}',
+                    style: TextStyle(fontSize: 11, color: Colors.red[600]),
+                  ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    reviewProvider.loadProductReviews(widget.productId);
+                  },
+                  child: const Text('Refresh Reviews'),
+                ),
+              ],
+            ),
           ),
           if (widget.showCreateButton) ...[
             const SizedBox(height: 16),

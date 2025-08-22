@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/category_management_provider.dart';
 import '../../../core/models/category_model.dart';
+import '../widgets/category_form_modal.dart';
 import 'admin_dashboard_screen.dart';
 import 'product_management_screen.dart';
 import 'order_management_screen.dart';
@@ -16,15 +17,7 @@ class CategoryManagementScreen extends StatefulWidget {
 }
 
 class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
   final _searchController = TextEditingController();
-
-  bool _isLoading = false;
-  bool _isEditing = false;
-  String? _editingCategoryId;
-  bool _showForm = false;
 
   @override
   void initState() {
@@ -38,77 +31,54 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _descriptionController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _resetForm() {
-    _formKey.currentState?.reset();
-    _nameController.clear();
-    _descriptionController.clear();
-    _isEditing = false;
-    _editingCategoryId = null;
-  }
+  void _showCategoryModal({CategoryModel? category}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: CategoryFormModal(
+          category: category,
+          onSave: (CategoryModel categoryData) async {
+            try {
+              if (category != null) {
+                // Editing existing category
+                await context.read<CategoryManagementProvider>().updateCategory(
+                      category.id,
+                      categoryData.toFirestore(),
+                    );
+              } else {
+                // Creating new category
+                await context
+                    .read<CategoryManagementProvider>()
+                    .createCategory(categoryData);
+              }
 
-  void _editCategory(CategoryModel category) {
-    if (!mounted) return;
-    setState(() {
-      _isEditing = true;
-      _editingCategoryId = category.id;
-      _nameController.text = category.name;
-      _descriptionController.text = category.description;
-      _showForm = true;
-    });
-  }
-
-  Future<void> _saveCategory() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final categoryData = CategoryModel(
-        id: '',
-        name: _nameController.text.trim(),
-        description: _descriptionController.text.trim(),
-        isActive: true,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      if (_isEditing) {
-        await context.read<CategoryManagementProvider>().updateCategory(
-              _editingCategoryId!,
-              categoryData.toFirestore(),
-            );
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Category updated successfully')),
-        );
-      } else {
-        await context
-            .read<CategoryManagementProvider>()
-            .createCategory(categoryData);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Category created successfully')),
-        );
-      }
-
-      _resetForm();
-      setState(() => _showForm = false);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+              // Refresh the categories list
+              if (mounted) {
+                context.read<CategoryManagementProvider>().loadCategories();
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: ${e.toString()}')),
+                );
+              }
+            }
+          },
+          onCancel: () {
+            // Handle cancellation if needed
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteCategory(String categoryId) async {
@@ -189,11 +159,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                     // Categories List Section
                     _buildCategoriesList(),
 
-                    // Add/Edit Form (Conditional)
-                    if (_showForm) ...[
-                      const SizedBox(height: 24),
-                      _buildCategoryForm(),
-                    ],
+                    // Form removed - now using modal approach
                   ],
                 ),
               ),
@@ -221,7 +187,12 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AdminDashboardScreen(),
+              ),
+            ),
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -297,12 +268,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _showForm = true;
-                      _resetForm();
-                    });
-                  },
+                  onPressed: () => _showCategoryModal(),
                   icon: const Icon(Icons.add, size: 20),
                   label: const Text('Add New Category'),
                   style: ElevatedButton.styleFrom(
@@ -316,26 +282,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _showForm = false;
-                      _resetForm();
-                    });
-                  },
-                  icon: const Icon(Icons.list, size: 20),
-                  label: const Text('View All'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    side: BorderSide(color: Colors.grey[300]!),
-                  ),
-                ),
-              ),
+              // View All button removed - not needed with modal approach
             ],
           ),
         ],
@@ -484,16 +431,12 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
 
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: GridView.builder(
+                child: ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.9,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                  ),
                   itemCount: categoryProvider.filteredCategories.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 16),
                   itemBuilder: (context, index) {
                     final category = categoryProvider.filteredCategories[index];
                     return _buildCategoryCard(category);
@@ -522,64 +465,104 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          // Category Header
+          // Category Image Section
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            width: 120,
+            height: 120,
             decoration: BoxDecoration(
               color: category.isActive ? Colors.green[50] : Colors.grey[50],
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
+                  const BorderRadius.horizontal(left: Radius.circular(12)),
             ),
-            child: Row(
+            child: Stack(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: category.isActive
-                        ? Colors.green[100]
-                        : Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
+                // Background Image or Placeholder
+                if (category.image != null && category.image!.isNotEmpty) ...[
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.horizontal(
+                          left: Radius.circular(12)),
+                      child: Image.network(
+                        category.image!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey[200],
+                            child: Icon(
+                              Icons.image_not_supported,
+                              size: 48,
+                              color: Colors.grey[400],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
-                  child: Icon(
-                    Icons.category,
-                    color: category.isActive
-                        ? Colors.green[700]
-                        : Colors.grey[600],
-                    size: 20,
+                ] else ...[
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.grey[200],
+                      child: Icon(
+                        Icons.category,
+                        size: 48,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ),
+                ],
+
+                // Status Overlay
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: category.isActive ? Colors.green : Colors.grey,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      category.isActive ? 'Active' : 'Inactive',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        category.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: category.isActive
-                              ? Colors.green[800]
-                              : Colors.grey[700],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+
+                // Category Name Overlay
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.7),
+                        ],
                       ),
-                      Text(
-                        category.isActive ? 'Active' : 'Inactive',
-                        style: TextStyle(
-                          color: category.isActive
-                              ? Colors.green[600]
-                              : Colors.grey[500],
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    ),
+                    child: Text(
+                      category.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.white,
                       ),
-                    ],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               ],
@@ -592,37 +575,43 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Description',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Expanded(
-                    child: Text(
-                      category.description.isNotEmpty
-                          ? category.description
-                          : 'No description provided',
-                      style: TextStyle(
-                        color: Colors.grey[700],
-                        fontSize: 14,
+                  // Description Section
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Description',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      const SizedBox(height: 4),
+                      Text(
+                        category.description.isNotEmpty
+                            ? category.description
+                            : 'No description provided',
+                        style: TextStyle(
+                          color: Colors.grey[700],
+                          fontSize: 14,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
 
                   // Action Buttons
-                  Row(
+                  Column(
                     children: [
-                      Expanded(
+                      SizedBox(
+                        width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () => _editCategory(category),
+                          onPressed: () =>
+                              _showCategoryModal(category: category),
                           icon: const Icon(Icons.edit, size: 16),
                           label: const Text('Edit'),
                           style: OutlinedButton.styleFrom(
@@ -634,246 +623,24 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () => _toggleCategoryStatus(
-                              category.id, category.isActive),
-                          icon: Icon(
-                            category.isActive ? Icons.pause : Icons.play_arrow,
-                            size: 16,
-                          ),
-                          label: Text(category.isActive ? 'Pause' : 'Activate'),
+                          onPressed: () => _deleteCategory(category.id),
+                          icon: const Icon(Icons.delete, size: 16),
+                          label: const Text('Delete'),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            side: BorderSide(
-                              color: category.isActive
-                                  ? Colors.orange[300]!
-                                  : Colors.green[300]!,
-                            ),
+                            side: BorderSide(color: Colors.red[300]!),
+                            foregroundColor: Colors.red[600],
                           ),
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _deleteCategory(category.id),
-                      icon: const Icon(Icons.delete, size: 16),
-                      label: const Text('Delete'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        side: BorderSide(color: Colors.red[300]!),
-                        foregroundColor: Colors.red[600],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryForm() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Form Header
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: _isEditing ? Colors.orange[50] : Colors.green[50],
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _isEditing ? Colors.orange[100] : Colors.green[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    _isEditing ? Icons.edit : Icons.add,
-                    color: _isEditing ? Colors.orange[700] : Colors.green[700],
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _isEditing ? 'Edit Category' : 'Add New Category',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      Text(
-                        _isEditing
-                            ? 'Update category information'
-                            : 'Create a new product category',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey[600],
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      _showForm = false;
-                      _resetForm();
-                    });
-                  },
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-          ),
-
-          // Form Content
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  // Category Name
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: 'Category Name',
-                      hintText: 'Enter category name',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.blue[600]!),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[50],
-                      prefixIcon: Icon(Icons.category, color: Colors.grey[600]),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Category name is required';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Description
-                  TextFormField(
-                    controller: _descriptionController,
-                    decoration: InputDecoration(
-                      labelText: 'Description',
-                      hintText: 'Enter category description',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey[300]!),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.blue[600]!),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[50],
-                      prefixIcon:
-                          Icon(Icons.description, color: Colors.grey[600]),
-                    ),
-                    maxLines: 3,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Description is required';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Save Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _saveCategory,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            _isEditing ? Colors.orange[600] : Colors.green[600],
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  _isEditing ? Icons.save : Icons.add,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _isEditing
-                                      ? 'Update Category'
-                                      : 'Add Category',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
                   ),
                 ],
               ),

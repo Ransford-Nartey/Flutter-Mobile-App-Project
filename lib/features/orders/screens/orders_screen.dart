@@ -145,7 +145,11 @@ class _OrdersScreenState extends State<OrdersScreen>
                   ElevatedButton(
                     onPressed: () {
                       // Navigate to home to start shopping
-                      DefaultTabController.of(context)?.animateTo(0);
+                      Navigator.pushNamedAndRemoveUntil(
+                        context, 
+                        '/', 
+                        (route) => false
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,

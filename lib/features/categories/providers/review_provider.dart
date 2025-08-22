@@ -9,8 +9,9 @@ class ReviewProvider extends ChangeNotifier {
   String? _error;
   String _currentProductId = '';
   String _currentUserId = '';
-  String _filterType = 'all'; // 'all', 'verified', 'rating'
-  double? _ratingFilter;
+
+  // Callback to refresh product data when reviews change
+  VoidCallback? _onProductDataChanged;
 
   // Getters
   List<ReviewModel> get reviews => [..._reviews];
@@ -19,21 +20,13 @@ class ReviewProvider extends ChangeNotifier {
   String? get error => _error;
   String get currentProductId => _currentProductId;
   String get currentUserId => _currentUserId;
-  String get filterType => _filterType;
-  double? get ratingFilter => _ratingFilter;
 
-  // Get filtered reviews based on current filters
-  List<ReviewModel> get filteredReviews {
-    List<ReviewModel> filtered = _reviews;
+  // Get all reviews (no filtering)
+  List<ReviewModel> get filteredReviews => _reviews;
 
-    if (_filterType == 'verified') {
-      filtered = filtered.where((review) => review.isVerifiedPurchase).toList();
-    } else if (_filterType == 'rating' && _ratingFilter != null) {
-      filtered =
-          filtered.where((review) => review.rating == _ratingFilter).toList();
-    }
-
-    return filtered;
+  // Set callback to refresh product data
+  void setProductDataRefreshCallback(VoidCallback callback) {
+    _onProductDataChanged = callback;
   }
 
   // Get average rating
@@ -54,6 +47,7 @@ class ReviewProvider extends ChangeNotifier {
   // Load reviews for a specific product
   Future<void> loadProductReviews(String productId) async {
     try {
+      print('ReviewProvider: Loading reviews for product: $productId');
       _isLoading = true;
       _error = null;
       _currentProductId = productId;
@@ -61,12 +55,14 @@ class ReviewProvider extends ChangeNotifier {
       notifyListeners();
 
       _reviews = await ReviewService.getProductReviews(productId);
+      print('ReviewProvider: Loaded ${_reviews.length} reviews');
 
       // Load review statistics
       await _loadReviewStats(productId);
 
       notifyListeners();
     } catch (e) {
+      print('ReviewProvider: Error loading reviews: $e');
       _error = 'Failed to load reviews: $e';
       notifyListeners();
     } finally {
@@ -116,12 +112,17 @@ class ReviewProvider extends ChangeNotifier {
       // Add to local list
       _reviews.insert(0, review.copyWith(id: reviewId));
 
-      // Reload review stats
+      // Reload review stats and refresh reviews
       if (_currentProductId.isNotEmpty) {
         await _loadReviewStats(_currentProductId);
+        await loadProductReviews(_currentProductId); // Refresh the reviews list
       }
 
       notifyListeners();
+
+      // Notify product data to refresh
+      _onProductDataChanged?.call();
+
       return reviewId;
     } catch (e) {
       _error = 'Failed to create review: $e';
@@ -150,12 +151,16 @@ class ReviewProvider extends ChangeNotifier {
         );
       }
 
-      // Reload review stats
+      // Reload review stats and refresh reviews
       if (_currentProductId.isNotEmpty) {
         await _loadReviewStats(_currentProductId);
+        await loadProductReviews(_currentProductId); // Refresh the reviews list
       }
 
       notifyListeners();
+
+      // Notify product data to refresh
+      _onProductDataChanged?.call();
     } catch (e) {
       _error = 'Failed to update review: $e';
       notifyListeners();
@@ -170,12 +175,16 @@ class ReviewProvider extends ChangeNotifier {
       // Remove from local list
       _reviews.removeWhere((r) => r.id == reviewId);
 
-      // Reload review stats
+      // Reload review stats and refresh reviews
       if (_currentProductId.isNotEmpty) {
         await _loadReviewStats(_currentProductId);
+        await loadProductReviews(_currentProductId); // Refresh the reviews list
       }
 
       notifyListeners();
+
+      // Notify product data to refresh
+      _onProductDataChanged?.call();
     } catch (e) {
       _error = 'Failed to delete review: $e';
       notifyListeners();
@@ -226,20 +235,6 @@ class ReviewProvider extends ChangeNotifier {
     }
   }
 
-  // Set filter type
-  void setFilterType(String filterType, {double? rating}) {
-    _filterType = filterType;
-    _ratingFilter = rating;
-    notifyListeners();
-  }
-
-  // Clear filters
-  void clearFilters() {
-    _filterType = 'all';
-    _ratingFilter = null;
-    notifyListeners();
-  }
-
   // Check if user has already reviewed a product
   Future<bool> hasUserReviewedProduct(String userId, String productId) async {
     try {
@@ -276,8 +271,6 @@ class ReviewProvider extends ChangeNotifier {
     _error = null;
     _currentProductId = '';
     _currentUserId = '';
-    _filterType = 'all';
-    _ratingFilter = null;
     notifyListeners();
   }
 

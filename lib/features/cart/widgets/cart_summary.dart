@@ -115,8 +115,8 @@ class CartSummary extends StatelessWidget {
           // View Cart Button
           TextButton(
             onPressed: () {
-              // Navigate to cart tab
-              DefaultTabController.of(context)?.animateTo(2);
+              // Navigate to cart screen
+              Navigator.pushNamed(context, '/cart');
             },
             child: const Text(
               'View Cart',
@@ -277,6 +277,8 @@ class CartSummary extends StatelessWidget {
       ),
     );
   }
+
+
 }
 
 // Floating Cart Summary for persistent display
@@ -302,8 +304,8 @@ class FloatingCartSummary extends StatelessWidget {
           child: GestureDetector(
             onTap: onTap ??
                 () {
-                  // Navigate to cart tab
-                  DefaultTabController.of(context)?.animateTo(2);
+                  // Navigate to cart screen
+                  Navigator.pushNamed(context, '/cart');
                 },
             child: Container(
               padding: const EdgeInsets.all(12),
@@ -360,4 +362,5 @@ class FloatingCartSummary extends StatelessWidget {
       },
     );
   }
+
 }

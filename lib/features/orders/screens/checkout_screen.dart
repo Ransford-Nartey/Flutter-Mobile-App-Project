@@ -7,6 +7,7 @@ import '../providers/order_provider.dart';
 import '../../../core/models/order_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/services/auth_service.dart';
+import '../../../core/providers/notification_provider.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -344,6 +345,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final orderId = await orderProvider.createOrder(order);
 
       if (orderId != null) {
+        // Send notification to admins about new order
+        try {
+          final notificationProvider =
+              Provider.of<NotificationProvider>(context, listen: false);
+          await notificationProvider.sendNewOrderNotification(
+            orderId: orderId,
+            orderNumber: orderId,
+            customerName: _nameController.text.trim(),
+            totalAmount: total,
+            currency: 'GHS',
+          );
+          print('🔔 CheckoutScreen: New order notification sent to admins');
+        } catch (e) {
+          print('⚠️ CheckoutScreen: Failed to send notification: $e');
+        }
+
         cart.clear();
         if (mounted) {
           _showOrderSuccessDialog(orderId, total);

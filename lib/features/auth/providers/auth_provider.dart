@@ -18,6 +18,7 @@ class AuthProvider extends ChangeNotifier {
     // Listen to auth state changes
     AuthService.authStateChanges.listen((User? user) {
       _user = user;
+      print('AuthProvider: Auth state changed - User: ${user?.uid}');
       notifyListeners();
     });
   }
@@ -28,10 +29,21 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
 
     try {
+      print('AuthProvider: Attempting sign in for email: $email');
       await AuthService.signInWithEmailAndPassword(email, password);
+
+      // Get the current user after sign in
+      final currentUser = AuthService.currentUser;
+      if (currentUser != null) {
+        print('AuthProvider: Sign in successful for user: ${currentUser.uid}');
+        // Force a small delay to ensure Firebase is fully initialized
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+
       _setLoading(false);
       return true;
     } catch (e) {
+      print('AuthProvider: Sign in failed: $e');
       _setError(e.toString());
       _setLoading(false);
       return false;
@@ -100,27 +112,77 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // Update profile
-  Future<bool> updateProfile({String? displayName, String? photoURL}) async {
+  Future<bool> updateProfile({String? displayName}) async {
     _setLoading(true);
     _clearError();
 
     try {
+      print('🔍 AuthProvider: Starting profile update...');
+      print('🔍 AuthProvider: Display name: $displayName');
+      
       // Update Firebase Auth profile
       final user = AuthService.currentUser;
       if (user != null) {
+        print('🔍 AuthProvider: Current user: ${user.uid}');
+        
         if (displayName != null) {
+          print('🔍 AuthProvider: Updating display name to: $displayName');
           await user.updateDisplayName(displayName);
+          print('🔍 AuthProvider: Display name updated successfully');
         }
-        if (photoURL != null) {
-          await user.updatePhotoURL(photoURL);
-        }
+        
+        print('🔍 AuthProvider: Profile update completed successfully');
+      } else {
+        print('❌ AuthProvider: No current user found');
       }
+      
       _setLoading(false);
       return true;
     } catch (e) {
+      print('❌ AuthProvider: Error updating profile: $e');
       _setError(e.toString());
       _setLoading(false);
       return false;
+    }
+  }
+
+  // Change password
+  Future<bool> changePassword(String currentPassword, String newPassword) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      print('🔍 AuthProvider: Starting password change...');
+      
+      final user = AuthService.currentUser;
+      if (user != null) {
+        print('🔍 AuthProvider: Current user: ${user.uid}');
+        
+        // Re-authenticate user before changing password
+        print('🔍 AuthProvider: Re-authenticating user...');
+        final credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: currentPassword,
+        );
+        await user.reauthenticateWithCredential(credential);
+        print('🔍 AuthProvider: User re-authenticated successfully');
+        
+        // Change password
+        print('🔍 AuthProvider: Changing password...');
+        await user.updatePassword(newPassword);
+        print('🔍 AuthProvider: Password changed successfully');
+        
+        return true;
+      } else {
+        print('❌ AuthProvider: No current user found');
+        return false;
+      }
+    } catch (e) {
+      print('❌ AuthProvider: Error changing password: $e');
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
     }
   }
 

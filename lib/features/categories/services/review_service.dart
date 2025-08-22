@@ -8,17 +8,45 @@ class ReviewService {
   // Get reviews for a specific product
   static Future<List<ReviewModel>> getProductReviews(String productId) async {
     try {
-      final snapshot = await _firestore
-          .collection(_collection)
-          .where('productId', isEqualTo: productId)
-          .where('isActive', isEqualTo: true)
-          .orderBy('createdAt', descending: true)
-          .get();
+      print('Fetching reviews for product: $productId');
 
-      return snapshot.docs
-          .map((doc) => ReviewModel.fromFirestore(doc.data(), doc.id))
-          .toList();
+      // First try to get reviews with isActive filter
+      QuerySnapshot<Map<String, dynamic>> snapshot;
+      try {
+        snapshot = await _firestore
+            .collection(_collection)
+            .where('productId', isEqualTo: productId)
+            .where('isActive', isEqualTo: true)
+            .orderBy('createdAt', descending: true)
+            .get();
+      } catch (e) {
+        print('Query with isActive filter failed, trying without filter: $e');
+        // If the query fails (e.g., no index), try without the isActive filter
+        snapshot = await _firestore
+            .collection(_collection)
+            .where('productId', isEqualTo: productId)
+            .orderBy('createdAt', descending: true)
+            .get();
+      }
+
+      print('Found ${snapshot.docs.length} reviews in Firestore');
+
+      final reviews = <ReviewModel>[];
+      for (final doc in snapshot.docs) {
+        try {
+          final review = ReviewModel.fromFirestore(doc.data(), doc.id);
+          reviews.add(review);
+          print('Successfully parsed review: ${review.id}');
+        } catch (parseError) {
+          print('Error parsing review ${doc.id}: $parseError');
+          print('Review data: ${doc.data()}');
+        }
+      }
+
+      print('Successfully parsed ${reviews.length} reviews');
+      return reviews;
     } catch (e) {
+      print('Error fetching reviews: $e');
       throw Exception('Failed to get product reviews: $e');
     }
   }
@@ -84,8 +112,16 @@ class ReviewService {
   // Create a new review
   static Future<String> createReview(ReviewModel review) async {
     try {
-      final docRef =
-          await _firestore.collection(_collection).add(review.toFirestore());
+      // Convert DateTime to Timestamp for Firestore
+      final reviewData = review.toFirestore();
+      reviewData['createdAt'] = Timestamp.fromDate(review.createdAt);
+      reviewData['updatedAt'] = Timestamp.fromDate(review.updatedAt);
+
+      final docRef = await _firestore.collection(_collection).add(reviewData);
+
+      // Update product review statistics
+      await _updateProductReviewStats(review.productId);
+
       return docRef.id;
     } catch (e) {
       throw Exception('Failed to create review: $e');
@@ -98,6 +134,16 @@ class ReviewService {
     try {
       data['updatedAt'] = FieldValue.serverTimestamp();
       await _firestore.collection(_collection).doc(reviewId).update(data);
+
+      // Get the product ID from the existing review to update stats
+      final reviewDoc =
+          await _firestore.collection(_collection).doc(reviewId).get();
+      if (reviewDoc.exists) {
+        final reviewData = reviewDoc.data();
+        if (reviewData != null && reviewData['productId'] != null) {
+          await _updateProductReviewStats(reviewData['productId']);
+        }
+      }
     } catch (e) {
       throw Exception('Failed to update review: $e');
     }
@@ -106,10 +152,24 @@ class ReviewService {
   // Delete a review (soft delete by setting isActive to false)
   static Future<void> deleteReview(String reviewId) async {
     try {
+      // Get the product ID before deleting
+      final reviewDoc =
+          await _firestore.collection(_collection).doc(reviewId).get();
+      String? productId;
+      if (reviewDoc.exists) {
+        final reviewData = reviewDoc.data();
+        productId = reviewData?['productId'];
+      }
+
       await _firestore.collection(_collection).doc(reviewId).update({
         'isActive': false,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Update product review statistics
+      if (productId != null) {
+        await _updateProductReviewStats(productId);
+      }
     } catch (e) {
       throw Exception('Failed to delete review: $e');
     }
@@ -225,6 +285,39 @@ class ReviewService {
       return null;
     } catch (e) {
       throw Exception('Failed to get user product review: $e');
+    }
+  }
+
+  // Update product review statistics when reviews change
+  static Future<void> _updateProductReviewStats(String productId) async {
+    try {
+      // Get all active reviews for the product
+      final reviews = await getProductReviews(productId);
+
+      if (reviews.isEmpty) {
+        // No reviews, reset product stats
+        await _firestore.collection('products').doc(productId).update({
+          'rating': 0.0,
+          'reviewCount': 0,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        return;
+      }
+
+      // Calculate new statistics
+      final totalReviews = reviews.length;
+      final totalRating = reviews.map((r) => r.rating).reduce((a, b) => a + b);
+      final averageRating = totalRating / totalReviews;
+
+      // Update the product document
+      await _firestore.collection('products').doc(productId).update({
+        'rating': averageRating,
+        'reviewCount': totalReviews,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error updating product review stats: $e');
+      // Don't throw here as it's not critical for review creation
     }
   }
 }

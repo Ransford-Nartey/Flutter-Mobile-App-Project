@@ -37,7 +37,7 @@ class ProductModel {
     required this.subcategory,
     required this.price,
     this.currency = 'GHS',
-    this.unit = 'kg',
+    this.unit = '',
     required this.stockQuantity,
     required this.images,
     this.mainImage,

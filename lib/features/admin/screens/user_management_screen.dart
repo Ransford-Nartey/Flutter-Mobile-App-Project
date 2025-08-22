@@ -17,7 +17,7 @@ class UserManagementScreen extends StatefulWidget {
 class _UserManagementScreenState extends State<UserManagementScreen> {
   final _searchController = TextEditingController();
   String _selectedFilter = 'All';
-  final List<String> _filterOptions = ['All', 'Admin', 'Customer', 'Farmer'];
+  final List<String> _filterOptions = ['All', 'admin', 'customer'];
 
   @override
   void initState() {
@@ -54,14 +54,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
-  Future<void> _changeUserType(String userId, String newType) async {
+  Future<void> _suspendUser(String userId, bool suspend) async {
     try {
-      await context
-          .read<UserManagementProvider>()
-          .changeUserType(userId, newType);
+      await context.read<UserManagementProvider>().toggleUserStatus(userId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('User type changed to $newType')),
+        SnackBar(
+            content: Text(suspend ? 'User suspended' : 'User unsuspended')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -137,7 +136,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       child: Row(
         children: [
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AdminDashboardScreen(),
+              ),
+            ),
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -217,42 +221,52 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final customerUsers =
         users.where((u) => u.userType.toLowerCase() == 'customer').length;
 
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _buildStatCard(
-            'Total Users',
-            totalUsers.toString(),
-            Icons.people,
-            Colors.blue[600]!,
-          ),
+        // Top row - 2 cards
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                'Total Users',
+                totalUsers.toString(),
+                Icons.people,
+                Colors.blue[600]!,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildStatCard(
+                'Active Users',
+                activeUsers.toString(),
+                Icons.check_circle,
+                Colors.green[600]!,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'Active Users',
-            activeUsers.toString(),
-            Icons.check_circle,
-            Colors.green[600]!,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'Admins',
-            adminUsers.toString(),
-            Icons.admin_panel_settings,
-            Colors.red[600]!,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'Customers',
-            customerUsers.toString(),
-            Icons.person,
-            Colors.orange[600]!,
-          ),
+        const SizedBox(height: 16),
+        // Bottom row - 2 cards
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                'Admins',
+                adminUsers.toString(),
+                Icons.admin_panel_settings,
+                Colors.red[600]!,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildStatCard(
+                'Customers',
+                customerUsers.toString(),
+                Icons.person,
+                Colors.orange[600]!,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -372,7 +386,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     return DropdownMenuItem<String>(
                       value: option,
                       child: Text(
-                        option,
+                        option == 'All'
+                            ? option
+                            : option[0].toUpperCase() + option.substring(1),
                         style: TextStyle(
                           color: Colors.indigo[700],
                           fontWeight: FontWeight.w500,
@@ -553,10 +569,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 ),
                 const SizedBox(height: 8),
                 _buildActionButton(
-                  'Change Type',
-                  Icons.swap_horiz,
-                  Colors.blue,
-                  () => _showUserTypeDialog(user),
+                  user.isActive ? 'Suspend User' : 'Unsuspend User',
+                  user.isActive ? Icons.block : Icons.check_circle,
+                  user.isActive ? Colors.orange : Colors.green,
+                  () => _showSuspendUserDialog(user),
                 ),
               ],
             ),
@@ -672,41 +688,68 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     );
   }
 
-  void _showUserTypeDialog(UserModel user) {
+  void _showSuspendUserDialog(UserModel user) {
+    final isCurrentlySuspended = !user.isActive;
+    final actionText = isCurrentlySuspended ? 'Unsuspend' : 'Suspend';
+    final dialogTitle =
+        isCurrentlySuspended ? 'Unsuspend User' : 'Suspend User';
+    final dialogMessage = isCurrentlySuspended
+        ? 'Are you sure you want to unsuspend ${user.name}?'
+        : 'Are you sure you want to suspend ${user.name}? This will prevent them from accessing the system.';
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Change User Type for ${user.name}'),
+        title: Text(dialogTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Current type: ${user.userType}'),
+            Text(dialogMessage),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                labelText: 'New User Type',
-                border: OutlineInputBorder(),
+            if (!isCurrentlySuspended) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.orange[600], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Suspended users cannot log in or access any features.',
+                        style: TextStyle(
+                          color: Colors.orange[700],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              value: user.userType,
-              items: ['Admin', 'Customer', 'Farmer'].map((String type) {
-                return DropdownMenuItem<String>(
-                  value: type,
-                  child: Text(type),
-                );
-              }).toList(),
-              onChanged: (String? newType) {
-                if (newType != null && newType != user.userType) {
-                  _changeUserType(user.id, newType);
-                  Navigator.pop(context);
-                }
-              },
-            ),
+            ],
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _suspendUser(user.id, !isCurrentlySuspended);
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  isCurrentlySuspended ? Colors.green : Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(actionText),
           ),
         ],
       ),
@@ -728,7 +771,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     // Apply type filter
     if (_selectedFilter != 'All') {
       filtered = filtered.where((user) {
-        return user.userType.toLowerCase() == _selectedFilter.toLowerCase();
+        return user.userType == _selectedFilter;
       }).toList();
     }
 
@@ -758,7 +801,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         onTap: (index) {
           switch (index) {
             case 0: // Dashboard
-              Navigator.pushReplacement(
+              Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const AdminDashboardScreen(),
@@ -766,7 +809,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               );
               break;
             case 1: // Products
-              Navigator.pushReplacement(
+              Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const ProductManagementScreen(),
@@ -774,7 +817,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               );
               break;
             case 2: // Categories
-              Navigator.pushReplacement(
+              Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const CategoryManagementScreen(),
@@ -782,7 +825,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               );
               break;
             case 3: // Orders
-              Navigator.pushReplacement(
+              Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const OrderManagementScreen(),

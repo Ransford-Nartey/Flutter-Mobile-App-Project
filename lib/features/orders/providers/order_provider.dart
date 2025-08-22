@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../../../core/models/order_model.dart';
 import '../services/order_service.dart';
+import '../../../core/services/notification_service.dart';
 
 class OrderProvider extends ChangeNotifier {
   List<OrderModel> _orders = [];
@@ -85,6 +86,17 @@ class OrderProvider extends ChangeNotifier {
       // Add the new order to the list
       _orders.insert(0, order);
       notifyListeners();
+
+      // Send notification to all admins about new order
+      try {
+        // Use the existing NotificationProvider from context instead of creating new instance
+        // This will be handled by the UI layer that has access to the context
+        print(
+            '🔔 OrderProvider: New order created, notification should be sent via UI');
+      } catch (e) {
+        print('⚠️ OrderProvider: Failed to handle notification: $e');
+        // Don't fail the order creation if notification fails
+      }
 
       return orderId;
     } catch (e) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../screens/product_management_screen.dart';
 
 class RecentProductsWidget extends StatelessWidget {
   final List<Map<String, dynamic>> products;
@@ -45,7 +46,12 @@ class RecentProductsWidget extends StatelessWidget {
               ),
               TextButton(
                 onPressed: () {
-                  // TODO: Navigate to all products
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProductManagementScreen(),
+                    ),
+                  );
                 },
                 style: TextButton.styleFrom(
                   padding:
@@ -163,7 +169,7 @@ class RecentProductsWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Stock: ${product['stock'] ?? 0}',
+                  'Stock: ${product['stockQuantity'] ?? 0}',
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 10,
@@ -178,7 +184,7 @@ class RecentProductsWidget extends StatelessWidget {
             width: 8,
             height: 8,
             decoration: BoxDecoration(
-              color: (product['stock'] ?? 0) > 0 ? Colors.green : Colors.red,
+              color: (product['stockQuantity'] ?? 0) > 0 ? Colors.green : Colors.red,
               shape: BoxShape.circle,
             ),
           ),

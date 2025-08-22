@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io';
 import '../../../core/models/category_model.dart';
+import '../../../core/services/image_service.dart';
 
 class CategoryManagementProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final ImageService _imageService = ImageService();
 
   List<CategoryModel> _categories = [];
   bool _isLoading = false;
@@ -49,17 +52,32 @@ class CategoryManagementProvider extends ChangeNotifier {
     }
   }
 
-  // Create new category
-  Future<String?> createCategory(CategoryModel category) async {
+  // Create new category with image
+  Future<String?> createCategory(CategoryModel category, {File? imageFile}) async {
     _setLoading(true);
     _clearError();
 
     try {
-      final docRef =
-          await _firestore.collection('categories').add(category.toFirestore());
-      category = category.copyWith(id: docRef.id);
-      _categories.add(category);
+      String? imageUrl;
+      
+      // Upload image if provided
+      if (imageFile != null) {
+        if (!_imageService.isValidImageFile(imageFile)) {
+          throw Exception('Invalid image file. Please select an image under 5MB in JPG, PNG, GIF, or WebP format.');
+        }
+        
+        final fileName = _imageService.generateFileName(imageFile.path.split('/').last);
+        imageUrl = await _imageService.uploadImage(imageFile, 'categories', fileName);
+      }
+
+      // Create category with image URL
+      final categoryWithImage = category.copyWith(image: imageUrl);
+      final docRef = await _firestore.collection('categories').add(categoryWithImage.toFirestore());
+      
+      final newCategory = categoryWithImage.copyWith(id: docRef.id);
+      _categories.add(newCategory);
       _categories.sort((a, b) => a.name.compareTo(b.name));
+      
       return docRef.id;
     } catch (e) {
       _setError('Failed to create category: $e');
@@ -69,13 +87,31 @@ class CategoryManagementProvider extends ChangeNotifier {
     }
   }
 
-  // Update existing category
+  // Update existing category with image
   Future<bool> updateCategory(
-      String categoryId, Map<String, dynamic> updates) async {
+      String categoryId, Map<String, dynamic> updates, {File? imageFile}) async {
     _setLoading(true);
     _clearError();
 
     try {
+      String? imageUrl;
+      String? oldImageUrl;
+      
+      // Get current category to check for old image
+      final currentCategory = _categories.firstWhere((c) => c.id == categoryId);
+      oldImageUrl = currentCategory.image;
+      
+      // Upload new image if provided
+      if (imageFile != null) {
+        if (!_imageService.isValidImageFile(imageFile)) {
+          throw Exception('Invalid image file. Please select an image under 5MB in JPG, PNG, GIF, or WebP format.');
+        }
+        
+        final fileName = _imageService.generateFileName(imageFile.path.split('/').last);
+        imageUrl = await _imageService.uploadImage(imageFile, 'categories', fileName);
+        updates['image'] = imageUrl;
+      }
+
       await _firestore.collection('categories').doc(categoryId).update(updates);
 
       // Update local category
@@ -90,6 +126,16 @@ class CategoryManagementProvider extends ChangeNotifier {
         );
         _categories[index] = updatedCategory;
         _categories.sort((a, b) => a.name.compareTo(b.name));
+      }
+
+      // Delete old image if new one was uploaded
+      if (imageUrl != null && oldImageUrl != null && oldImageUrl.isNotEmpty) {
+        try {
+          await _imageService.deleteImage(oldImageUrl);
+        } catch (e) {
+          // Log error but don't fail the update
+          print('Warning: Failed to delete old image: $e');
+        }
       }
 
       return true;
@@ -117,6 +163,19 @@ class CategoryManagementProvider extends ChangeNotifier {
       if (productsQuery.docs.isNotEmpty) {
         _setError('Cannot delete category: It contains products');
         return false;
+      }
+
+      // Get category to delete associated image
+      final category = _categories.firstWhere((c) => c.id == categoryId);
+      
+      // Delete image from storage if exists
+      if (category.image != null && category.image!.isNotEmpty) {
+        try {
+          await _imageService.deleteImage(category.image!);
+        } catch (e) {
+          // Log error but don't fail the deletion
+          print('Warning: Failed to delete category image: $e');
+        }
       }
 
       await _firestore.collection('categories').doc(categoryId).delete();

@@ -18,6 +18,14 @@ dependencies {
 
   // Add the dependencies for any other desired Firebase products
   // https://firebase.google.com/docs/android/setup#available-libraries
+  
+  // Core library desugaring for flutter_local_notifications
+  coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+  
+  // Exclude problematic byte-buddy version
+  configurations.all {
+    exclude group: 'net.bytebuddy', module: 'byte-buddy'
+  }
 }
 
 
@@ -28,12 +36,13 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11
+        jvmTarget = JavaVersion.VERSION_17
     }
 
     defaultConfig {

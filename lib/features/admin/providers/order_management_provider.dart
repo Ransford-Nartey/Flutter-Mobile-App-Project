@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/models/order_model.dart';
+import '../../../core/services/notification_service.dart';
 
 class OrderManagementProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -96,6 +97,10 @@ class OrderManagementProvider extends ChangeNotifier {
     _clearError();
 
     try {
+      // Get the current order to get previous status and customer info
+      final currentOrder = _orders.firstWhere((o) => o.id == orderId);
+      final previousStatus = currentOrder.statusText;
+
       // Convert string status to OrderStatus enum
       OrderStatus status;
       switch (newStatus.toLowerCase()) {
@@ -136,6 +141,17 @@ class OrderManagementProvider extends ChangeNotifier {
           status: status,
           updatedAt: DateTime.now(),
         );
+      }
+
+      // Send notification to customer about status update
+      try {
+        // Use the existing NotificationProvider from context instead of creating new instance
+        // This will be handled by the UI layer that has access to the context
+        print(
+            '🔔 OrderManagementProvider: Order status updated, notification should be sent via UI');
+      } catch (e) {
+        print('⚠️ OrderManagementProvider: Failed to handle notification: $e');
+        // Don't fail the status update if notification fails
       }
 
       return true;
